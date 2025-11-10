@@ -40,4 +40,26 @@ uvicorn app.main:app --reload
 
 ### 4️ Open Swagger UI
 
-Go to:http://127.0.0.1:8000/docs
+Go to: http://127.0.0.1:8000/docs
+
+---
+
+## Running Tests Locally
+
+### To run all tests: 
+```bash
+pytest
+```
+
+### Integration Tests with PostgreSQL:
+
+Make sure PostgreSQL is running locally, or update your .env or connection string accordingly:
+```bash
+TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test_db
+```
+
+--- 
+
+## Link to DockerHub repository:
+
+Dockerhub repo: https://hub.docker.com/repository/docker/snoopy0/fastapi-user-ci-cd/general
