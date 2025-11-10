@@ -5,3 +5,5 @@ psycopg2-binary
 passlib[bcrypt]
 pydantic
 pytest
+email-validator
+bcrypt==4.0.1
