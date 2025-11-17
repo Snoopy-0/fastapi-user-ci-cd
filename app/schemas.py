@@ -1,55 +1,81 @@
 from datetime import datetime
-from typing import Annotated
-from pydantic import BaseModel, EmailStr, constr, Field, model_validator, field_validator
-from .calculations import CalculationType
+from enum import Enum
 
-usernameStr = Annotated[str, Field(min_length=3, max_length=50)]
-passwordStr = Annotated[str, Field(min_length=6)]
+from pydantic import (
+    BaseModel,
+    EmailStr,
+    Field,
+    field_validator,
+    model_validator,
+    ConfigDict,
+)
 
+# User schemas
 class UserBase(BaseModel):
-    username: usernameStr
+    username: str = Field(..., min_length=3, max_length=50)
     email: EmailStr
 
 class UserCreate(UserBase):
-    password: passwordStr
+    password: str = Field(..., min_length=6)
 
 class UserRead(UserBase):
     id: int
     created_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
+
+# Calculation schemas
+class CalculationType(str, Enum):
+    add = "add"
+    sub = "sub"
+    multiply = "multiply"
+    divide = "divide"
 
 class CalculationBase(BaseModel):
     a: float
     b: float
     type: CalculationType
 
+    model_config = ConfigDict(from_attributes=True)
+
     @field_validator("type", mode="before")
     @classmethod
-    def normalize_type(cls, value):
-        if isinstance(value, CalculationType):
-            return value
-        if isinstance(value, str):
-            normalized = value.strip().lower()
-            for calc_type in CalculationType:
-                if normalized in {calc_type.value, calc_type.name.lower()}:
-                    return calc_type
-        raise ValueError("Invalid calculation type. Use add, sub, multiply, or divide.")
+    def normalize_type(cls, v):
+        if isinstance(v, CalculationType):
+            return v
 
-    @model_validator(mode="after")
-    def validate_division(self):
-        if self.type == CalculationType.DIVIDE and self.b == 0:
-            raise ValueError("Divisor cannot be zero.")
-        return self
+        if not isinstance(v, str):
+            raise ValueError("type must be a string or CalculationType")
+
+        key = v.strip().lower()
+        mapping = {
+            "add": CalculationType.add,
+            "plus": CalculationType.add,
+            "sum": CalculationType.add,
+            "sub": CalculationType.sub,
+            "subtract": CalculationType.sub,
+            "minus": CalculationType.sub,
+            "mul": CalculationType.multiply,
+            "multiply": CalculationType.multiply,
+            "times": CalculationType.multiply,
+            "div": CalculationType.divide,
+            "divide": CalculationType.divide,
+        }
+        if key in mapping:
+            return mapping[key]
+
+        raise ValueError("type must be one of: add, sub, multiply, divide")
 
 class CalculationCreate(CalculationBase):
-    pass
+
+    @model_validator(mode="after")
+    def check_division_by_zero(self):
+        if self.type == CalculationType.divide and self.b == 0:
+            raise ValueError("Division by zero is not allowed")
+        return self
 
 class CalculationRead(CalculationBase):
     id: int
     result: float
-    created_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

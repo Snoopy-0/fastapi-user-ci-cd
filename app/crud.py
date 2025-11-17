@@ -1,7 +1,9 @@
 from sqlalchemy.orm import Session
-from . import models, schemas, security
-from .calculations import execute_calculation
 
+from . import models, schemas, security
+from .calculation_factory import get_operation
+
+# User CRUD
 def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
 
@@ -20,13 +22,26 @@ def create_user(db: Session, user_in: schemas.UserCreate) -> models.User:
     db.refresh(db_user)
     return db_user
 
-def create_calculation(db: Session, calc_in: schemas.CalculationCreate) -> models.Calculation:
-    result = execute_calculation(calc_in.type, calc_in.a, calc_in.b)
+# Calculation CRUD
+def create_calculation(
+    db: Session,
+    calc_in: schemas.CalculationCreate,
+    user_id: int | None = None,
+) -> models.Calculation:
+    if calc_in.type == schemas.CalculationType.divide and calc_in.b == 0:
+        raise ValueError("Division by zero is not allowed")
+
+    operation = get_operation(calc_in.type.value)
+    result = operation.calculate(calc_in.a, calc_in.b)
+
+    model_calc_type = models.CalculationType[calc_in.type.name.upper()]
+
     db_calc = models.Calculation(
         a=calc_in.a,
         b=calc_in.b,
-        type=calc_in.type,
+        type=model_calc_type,
         result=result,
+        user_id=user_id,
     )
     db.add(db_calc)
     db.commit()
