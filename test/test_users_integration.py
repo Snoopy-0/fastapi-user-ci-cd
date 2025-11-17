@@ -5,16 +5,21 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
-from app.main import app, get_db
+from app import crud, models, schemas
+from app.calculations import CalculationType
 from app.database import Base
+from app.main import app, get_db
 
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
-    "postgresql://postgres:postgres@localhost:5432/test_db",
+    "sqlite:///./test_app.db",
 )
 
-engine = create_engine(TEST_DATABASE_URL, future=True)
+connect_args = {}
+if TEST_DATABASE_URL.startswith("sqlite"):
+    connect_args["check_same_thread"] = False
+
+engine = create_engine(TEST_DATABASE_URL, future=True, connect_args=connect_args)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def override_get_db():
@@ -66,3 +71,29 @@ def test_create_user_duplicate_email():
     response = client.post("/users/", json=payload)
     assert response.status_code == 400
     assert response.json()["detail"] == "Email already registered"
+
+def test_create_calculation_record(setup_database):
+    db = TestingSessionLocal()
+    try:
+        calc_in = schemas.CalculationCreate(a=3.5, b=2, type="Multiply")
+        calc = crud.create_calculation(db, calc_in)
+        assert calc.result == pytest.approx(7.0)
+
+        stored = db.query(models.Calculation).filter_by(id=calc.id).first()
+        assert stored is not None
+        assert stored.type == CalculationType.MULTIPLY
+    finally:
+        db.close()
+
+def test_create_calculation_invalid_operand(setup_database):
+    db = TestingSessionLocal()
+    try:
+        calc_in = schemas.CalculationCreate.construct(
+            a=5,
+            b=0,
+            type=CalculationType.DIVIDE,
+        )
+        with pytest.raises(ValueError):
+            crud.create_calculation(db, calc_in)
+    finally:
+        db.close()
