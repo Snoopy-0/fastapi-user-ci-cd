@@ -24,6 +24,10 @@ class UserRead(UserBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+class UserLogin(BaseModel):
+    identifier: str = Field(..., description="Username or email")
+    password: str = Field(..., min_length=6)
+
 # Calculation schemas
 class CalculationType(str, Enum):
     add = "add"
