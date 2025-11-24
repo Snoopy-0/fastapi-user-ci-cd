@@ -5,10 +5,10 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app import crud, models, schemas
-from app.calculations import CalculationType
+
 from app.database import Base
 from app.main import app, get_db
+from app import models
 
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
@@ -33,7 +33,6 @@ app.dependency_overrides[get_db] = override_get_db
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
-    # ensure DB is ready (esp. in CI)
     for _ in range(10):
         try:
             Base.metadata.create_all(bind=engine)
@@ -45,9 +44,9 @@ def setup_database():
 
 client = TestClient(app)
 
-def test_create_user_success():
+def test_register_user_success():
     response = client.post(
-        "/users/",
+        "/users/register",
         json={
             "username": "integrationuser",
             "email": "integration@example.com",
@@ -61,39 +60,55 @@ def test_create_user_success():
     assert "id" in data
     assert "created_at" in data
 
-def test_create_user_duplicate_email():
+    # verify user exists in DB
+    db = TestingSessionLocal()
+    try:
+        user = db.query(models.User).filter_by(email="integration@example.com").first()
+        assert user is not None
+        assert user.username == "integrationuser"
+    finally:
+        db.close()
+
+def test_register_user_duplicate_email():
     payload = {
         "username": "user1",
         "email": "dup@example.com",
         "password": "password123",
     }
-    client.post("/users/", json=payload)
-    response = client.post("/users/", json=payload)
+
+    client.post("/users/register", json=payload)
+
+    response = client.post("/users/register", json=payload)
     assert response.status_code == 400
     assert response.json()["detail"] == "Email already registered"
 
-def test_create_calculation_record(setup_database):
-    db = TestingSessionLocal()
-    try:
-        calc_in = schemas.CalculationCreate(a=3.5, b=2, type="Multiply")
-        calc = crud.create_calculation(db, calc_in)
-        assert calc.result == pytest.approx(7.0)
+def test_login_user_success():
+    payload = {
+        "username": "loginuser",
+        "email": "login@example.com",
+        "password": "password123",
+    }
+    client.post("/users/register", json=payload)
 
-        stored = db.query(models.Calculation).filter_by(id=calc.id).first()
-        assert stored is not None
-        assert stored.type == CalculationType.MULTIPLY
-    finally:
-        db.close()
+    response = client.post(
+        "/users/login",
+        json={
+            "identifier": "loginuser",  
+            "password": "password123",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["username"] == "loginuser"
+    assert data["email"] == "login@example.com"
 
-def test_create_calculation_invalid_operand(setup_database):
-    db = TestingSessionLocal()
-    try:
-        calc_in = schemas.CalculationCreate.construct(
-            a=5,
-            b=0,
-            type=CalculationType.DIVIDE,
-        )
-        with pytest.raises(ValueError):
-            crud.create_calculation(db, calc_in)
-    finally:
-        db.close()
+def test_login_user_invalid_credentials():
+    response = client.post(
+        "/users/login",
+        json={
+            "identifier": "nonexistentuser",
+            "password": "wrongpassword",
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid credentials"

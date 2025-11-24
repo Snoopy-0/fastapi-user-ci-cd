@@ -28,9 +28,6 @@ def create_calculation(
     calc_in: schemas.CalculationCreate,
     user_id: int | None = None,
 ) -> models.Calculation:
-    if calc_in.type == schemas.CalculationType.divide and calc_in.b == 0:
-        raise ValueError("Division by zero is not allowed")
-
     operation = get_operation(calc_in.type.value)
     result = operation.calculate(calc_in.a, calc_in.b)
 

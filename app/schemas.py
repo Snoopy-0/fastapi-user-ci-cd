@@ -70,6 +70,12 @@ class CalculationBase(BaseModel):
 
         raise ValueError("type must be one of: add, sub, multiply, divide")
 
+class CalculationRead(CalculationBase):
+    id: int
+    result: float
+
+    model_config = ConfigDict(from_attributes=True)
+
 class CalculationCreate(CalculationBase):
 
     @model_validator(mode="after")
@@ -77,9 +83,3 @@ class CalculationCreate(CalculationBase):
         if self.type == CalculationType.divide and self.b == 0:
             raise ValueError("Division by zero is not allowed")
         return self
-
-class CalculationRead(CalculationBase):
-    id: int
-    result: float
-
-    model_config = ConfigDict(from_attributes=True)
