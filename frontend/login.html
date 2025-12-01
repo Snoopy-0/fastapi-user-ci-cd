@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Login</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 400px; margin: 2rem auto; }
+    form { display: flex; flex-direction: column; gap: 0.5rem; }
+    label { display: flex; flex-direction: column; font-size: 0.9rem; }
+    input { padding: 0.4rem; }
+    button { padding: 0.5rem; margin-top: 0.5rem; cursor: pointer; }
+    #error { color: red; min-height: 1.2rem; }
+    #message { color: green; min-height: 1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Login</h1>
+
+  <form id="login-form">
+    <label>
+      Email or Username
+      <input type="text" name="identifier" id="identifier" required />
+    </label>
+
+    <label>
+      Password
+      <input type="password" name="password" id="password" required />
+    </label>
+
+    <button type="submit">Login</button>
+  </form>
+
+  <p id="error"></p>
+  <p id="message"></p>
+
+  <script>
+    const form = document.getElementById("login-form");
+    const errorEl = document.getElementById("error");
+    const messageEl = document.getElementById("message");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errorEl.textContent = "";
+      messageEl.textContent = "";
+
+      const identifier = document.getElementById("identifier").value.trim();
+      const password = document.getElementById("password").value;
+
+      if (!identifier || !password) {
+        errorEl.textContent = "Please enter both identifier and password.";
+        return;
+      }
+
+      try {
+        const response = await fetch("/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ identifier, password }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          if (data.access_token) {
+            localStorage.setItem("authToken", data.access_token);
+          }
+          messageEl.textContent = "Login successful!";
+        } else if (response.status === 401) {
+          errorEl.textContent = data.detail || "Invalid credentials.";
+        } else {
+          errorEl.textContent = data.detail || "Login failed.";
+        }
+      } catch (err) {
+        console.error(err);
+        errorEl.textContent = "Network error. Please try again.";
+      }
+    });
+  </script>
+</body>
+</html>

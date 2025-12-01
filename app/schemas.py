@@ -28,6 +28,10 @@ class UserLogin(BaseModel):
     identifier: str = Field(..., description="Username or email")
     password: str = Field(..., min_length=6)
 
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
 # Calculation schemas
 class CalculationType(str, Enum):
     add = "add"

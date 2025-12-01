@@ -1,9 +1,11 @@
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List
+from pathlib import Path
 
 from .database import SessionLocal, engine, Base
-from . import schemas, crud
+from . import schemas, crud, security
 
 Base.metadata.create_all(bind=engine)
 
@@ -15,6 +17,49 @@ def get_db():
         yield db
     finally:
         db.close()
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+FRONTEND_DIR = BASE_DIR / "frontend"
+
+@app.post(
+    "/register",
+    response_model=schemas.Token,
+    status_code=status.HTTP_201_CREATED,
+)
+def register(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
+    # uniqueness checks
+    if crud.get_user_by_email(db, user_in.email):
+        raise HTTPException(status_code=400, detail="Email already registered")
+    if crud.get_user_by_username(db, user_in.username):
+        raise HTTPException(status_code=400, detail="Username already taken")
+
+    user = crud.create_user(db, user_in)
+    access_token = security.create_access_token(str(user.id))
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post(
+    "/login",
+    response_model=schemas.Token,
+    status_code=status.HTTP_200_OK,
+)
+def login(login_in: schemas.UserLogin, db: Session = Depends(get_db)):
+    user = crud.authenticate_user(db, login_in.identifier, login_in.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+        )
+
+    access_token = security.create_access_token(str(user.id))
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/register", include_in_schema=False)
+def serve_register_page():
+    return FileResponse(FRONTEND_DIR / "register.html")
+
+@app.get("/login", include_in_schema=False)
+def serve_login_page():
+    return FileResponse(FRONTEND_DIR / "login.html")
 
 @app.post(
     "/users/register",
