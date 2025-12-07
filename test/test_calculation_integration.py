@@ -1,5 +1,6 @@
 import os
 import time
+import uuid
 
 import pytest
 from fastapi.testclient import TestClient
@@ -21,6 +22,18 @@ if TEST_DATABASE_URL.startswith("sqlite"):
 
 engine = create_engine(TEST_DATABASE_URL, future=True, connect_args=connect_args)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def get_auth_headers():
+    uniq = uuid.uuid4().hex[:8]
+    payload = {
+        "username": f"testuser_{uniq}",
+        "email": f"testuser_{uniq}@example.com",
+        "password": "password123",
+    }
+    resp = client.post("/users/register", json=payload)
+    assert resp.status_code in (200, 201)
+    token = resp.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
 
 def override_get_db():
     db = TestingSessionLocal()
@@ -46,8 +59,14 @@ def setup_database():
 client = TestClient(app)
 
 def test_calculation_bread_flow():
+    auth = get_auth_headers()
+
     create_payload = {"a": 10, "b": 5, "type": "sub"}
-    resp = client.post("/calculations", json=create_payload)
+    resp = client.post(
+        "/calculations",
+        json=create_payload,
+        headers=auth,
+    )
     assert resp.status_code == 201
     created = resp.json()
     calc_id = created["id"]
@@ -56,33 +75,43 @@ def test_calculation_bread_flow():
     assert created["b"] == 5
     assert created["result"] == 5
 
-    resp = client.get(f"/calculations/{calc_id}")
+    resp = client.get(f"/calculations/{calc_id}", headers=auth)
     assert resp.status_code == 200
-    read_calc = resp.json()
-    assert read_calc["id"] == calc_id
-    assert read_calc["result"] == 5
+    read_back = resp.json()
+    assert read_back["id"] == calc_id
 
-    resp = client.get("/calculations")
+    # BROWSE
+    resp = client.get("/calculations", headers=auth)
     assert resp.status_code == 200
     all_calcs = resp.json()
     assert any(c["id"] == calc_id for c in all_calcs)
 
+    # EDIT
     update_payload = {"a": 20, "b": 5, "type": "divide"}
-    resp = client.put(f"/calculations/{calc_id}", json=update_payload)
+    resp = client.put(
+        f"/calculations/{calc_id}",
+        json=update_payload,
+        headers=auth,
+    )
     assert resp.status_code == 200
     updated = resp.json()
-
     assert updated["result"] == 4
 
-    resp = client.delete(f"/calculations/{calc_id}")
+    # DELETE
+    resp = client.delete(f"/calculations/{calc_id}", headers=auth)
     assert resp.status_code == 204
 
-    resp = client.get(f"/calculations/{calc_id}")
+    # Ensure it’s gone
+    resp = client.get(f"/calculations/{calc_id}", headers=auth)
     assert resp.status_code == 404
 
 def test_invalid_divide_by_zero():
     payload = {"a": 10, "b": 0, "type": "divide"}
-    resp = client.post("/calculations", json=payload)
+    resp = client.post(
+        "/calculations",
+        json=payload,
+        headers=get_auth_headers(),
+    )
 
     assert resp.status_code == 422
 

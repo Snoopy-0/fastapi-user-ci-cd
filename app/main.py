@@ -16,14 +16,14 @@ from sqlalchemy.orm import Session
 from .database import SessionLocal, engine, Base
 from . import schemas, crud, models
 from .security import SECRET_KEY, ALGORITHM, create_access_token
-
 # App & DB setup
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+BASE_DIR = Path(__file__).resolve().parent.parent
+FRONTEND_DIR = BASE_DIR / "frontend"
 
 def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
@@ -69,6 +69,22 @@ def get_current_user(
 @app.get("/", include_in_schema=False)
 def root():
     return FileResponse(FRONTEND_DIR / "login.html")
+
+@app.get("/register", include_in_schema=False)
+def serve_register_page():
+    return FileResponse(FRONTEND_DIR / "register.html")
+
+@app.get("/login", include_in_schema=False)
+def serve_login_page():
+    return FileResponse(FRONTEND_DIR / "login.html")
+
+@app.get("/calculations.html", include_in_schema=False)
+def serve_calculations_page():
+    return FileResponse(FRONTEND_DIR / "calculations.html")
+
+@app.get("/", include_in_schema=False)
+def serve_index():
+    return FileResponse(FRONTEND_DIR / "index.html")
 
 @app.get("/register", include_in_schema=False)
 def serve_register_page():

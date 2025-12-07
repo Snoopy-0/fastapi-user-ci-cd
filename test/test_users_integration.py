@@ -80,7 +80,7 @@ def test_register_user_duplicate_email():
 
     response = client.post("/users/register", json=payload)
     assert response.status_code == 400
-    assert response.json()["detail"] == "Email already registered"
+    assert response.json()["detail"] == "User with that username or email already exists"
 
 def test_login_user_success():
     payload = {

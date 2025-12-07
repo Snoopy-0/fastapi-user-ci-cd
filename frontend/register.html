@@ -1,18 +1,50 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <title>Register</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 400px; margin: 2rem auto; }
-    form { display: flex; flex-direction: column; gap: 0.5rem; }
-    label { display: flex; flex-direction: column; font-size: 0.9rem; }
-    input { padding: 0.4rem; }
-    button { padding: 0.5rem; margin-top: 0.5rem; cursor: pointer; }
-    #error { color: red; min-height: 1.2rem; }
-    #message { color: green; min-height: 1.2rem; }
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 400px;
+      margin: 2rem auto;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      font-size: 0.9rem;
+    }
+
+    input {
+      padding: 0.4rem;
+    }
+
+    button {
+      padding: 0.5rem;
+      margin-top: 0.5rem;
+      cursor: pointer;
+    }
+
+    #error {
+      color: red;
+      min-height: 1.2rem;
+    }
+
+    #message {
+      color: green;
+      min-height: 1.2rem;
+    }
   </style>
 </head>
+
 <body>
   <h1>Register</h1>
 
@@ -22,15 +54,20 @@
   <form id="register-form">
     <label>
       Username
-      <input type="text" id="username" required minlength="3" />
+      <input type="text" name="username" id="username" required />
     </label>
     <label>
       Email
-      <input type="email" id="email" required />
+      <input type="email" name="email" id="email" required />
     </label>
     <label>
       Password
-      <input type="password" id="password" required minlength="6" />
+      Password
+      <input type="password" name="password" id="password" required />
+    </label>
+    <label>
+      Confirm Password
+      <input type="password" name="confirmPassword" id="confirmPassword" required />
     </label>
     <button type="submit">Register</button>
   </form>
@@ -50,6 +87,12 @@
       const username = document.getElementById("username").value;
       const email = document.getElementById("email").value;
       const password = document.getElementById("password").value;
+
+      // Client-side password validation
+      if (password.length < 6) {
+        errorEl.textContent = "Password must be at least 6 characters long.";
+        return;
+      }
 
       try {
         const response = await fetch("/users/register", {
@@ -76,4 +119,5 @@
     });
   </script>
 </body>
+
 </html>
