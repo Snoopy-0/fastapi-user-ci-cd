@@ -16,43 +16,38 @@
 <body>
   <h1>Login</h1>
 
+  <div id="error"></div>
+  <div id="message"></div>
+
   <form id="login-form">
     <label>
-      Email or Username
-      <input type="text" name="identifier" id="identifier" required />
+      Username or Email
+      <input type="text" id="identifier" required />
     </label>
-
     <label>
       Password
-      <input type="password" name="password" id="password" required />
+      <input type="password" id="password" required minlength="6" />
     </label>
-
     <button type="submit">Login</button>
   </form>
 
-  <p id="error"></p>
-  <p id="message"></p>
+  <p>Need an account? <a href="/register">Register</a></p>
 
   <script>
     const form = document.getElementById("login-form");
     const errorEl = document.getElementById("error");
     const messageEl = document.getElementById("message");
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
       errorEl.textContent = "";
       messageEl.textContent = "";
 
-      const identifier = document.getElementById("identifier").value.trim();
+      const identifier = document.getElementById("identifier").value;
       const password = document.getElementById("password").value;
 
-      if (!identifier || !password) {
-        errorEl.textContent = "Please enter both identifier and password.";
-        return;
-      }
-
       try {
-        const response = await fetch("/login", {
+        const response = await fetch("/users/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ identifier, password }),
@@ -63,9 +58,11 @@
         if (response.ok) {
           if (data.access_token) {
             localStorage.setItem("authToken", data.access_token);
+            console.log("Saved token:", data.access_token);
           }
-          messageEl.textContent = "Login successful!";
-        } else if (response.status === 401) {
+          messageEl.textContent = "Login successful! Redirecting...";
+          window.location.href = "/calculations.html";
+        } else if (response.status === 400 || response.status === 401) {
           errorEl.textContent = data.detail || "Invalid credentials.";
         } else {
           errorEl.textContent = data.detail || "Login failed.";

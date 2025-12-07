@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 class Operation(ABC):
     @abstractmethod
-    def calculate(self, a: float, b: float) -> float:
+    def calculate(self, a: float, b: float) -> float:  # pragma: no cover - abstract
         ...
 
 class AddOperation(Operation):
@@ -20,7 +20,7 @@ class MulOperation(Operation):
 class DivOperation(Operation):
     def calculate(self, a: float, b: float) -> float:
         if b == 0:
-            raise ZeroDivisionError("Division by zero is not allowed")
+            raise ZeroDivisionError("division by zero")
         return a / b
 
 def get_operation(calc_type: str) -> Operation:

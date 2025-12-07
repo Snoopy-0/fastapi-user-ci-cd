@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Calculations</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 2rem auto; }
+    form { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+    label { display: flex; flex-direction: column; font-size: 0.9rem; }
+    input, select { padding: 0.4rem; }
+    button { padding: 0.5rem 0.8rem; cursor: pointer; }
+    #error { color: red; min-height: 1.2rem; }
+    #message { color: green; min-height: 1.2rem; }
+    table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+    th, td { border: 1px solid #ccc; padding: 0.4rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>Your Calculations</h1>
+  <div id="error"></div>
+  <div id="message"></div>
+
+  <!-- Add / Edit form -->
+  <form id="calc-form">
+    <input type="hidden" id="calc-id" />
+    <label>
+      A
+      <input type="number" step="any" id="a" required />
+    </label>
+    <label>
+      B
+      <input type="number" step="any" id="b" required />
+    </label>
+    <label>
+      Operation
+      <select id="type" required>
+        <option value="add">Add</option>
+        <option value="sub">Subtract</option>
+        <option value="multiply">Multiply</option>
+        <option value="divide">Divide</option>
+      </select>
+    </label>
+    <button type="submit">Save</button>
+    <button type="button" id="reset-btn">Reset</button>
+  </form>
+
+  <!-- Browse table -->
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>A</th>
+        <th>B</th>
+        <th>Type</th>
+        <th>Result</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="calc-table-body"></tbody>
+  </table>
+
+  <script>
+    const errorEl = document.getElementById("error");
+    const messageEl = document.getElementById("message");
+    const form = document.getElementById("calc-form");
+    const resetBtn = document.getElementById("reset-btn");
+    const tableBody = document.getElementById("calc-table-body");
+    const calcIdInput = document.getElementById("calc-id");
+    const aInput = document.getElementById("a");
+    const bInput = document.getElementById("b");
+    const typeSelect = document.getElementById("type");
+
+    function getToken() {
+      return localStorage.getItem("authToken");
+    }
+
+    function setError(msg) {
+      errorEl.textContent = msg || "";
+    }
+
+    function setMessage(msg) {
+      messageEl.textContent = msg || "";
+    }
+
+    function authHeaders() {
+      const token = getToken();
+      const headers = {
+        "Content-Type": "application/json",
+      };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      return headers;
+    }
+
+    // Browse
+    async function loadCalculations() {
+      setError("");
+      setMessage("");
+
+      // If there is no token at all, bail early
+      if (!getToken()) {
+        setError("You are not logged in.");
+        return;
+      }
+
+      try {
+        const resp = await fetch("/calculations", {
+          method: "GET",
+          headers: authHeaders(),
+        });
+
+        if (resp.status === 401) {
+          setError("You are not logged in.");
+          return;
+        }
+
+        if (!resp.ok) {
+          const data = await resp.json();
+          setError(data.detail || "Failed to load calculations.");
+          return;
+        }
+
+        const calcs = await resp.json();
+        renderTable(calcs);
+      } catch (err) {
+        console.error(err);
+        setError("Network error.");
+      }
+    }
+
+    function renderTable(calcs) {
+      tableBody.innerHTML = "";
+      calcs.forEach((c) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${c.id}</td>
+          <td>${c.a}</td>
+          <td>${c.b}</td>
+          <td>${c.type}</td>
+          <td>${c.result}</td>
+          <td>
+            <button data-id="${c.id}" class="edit-btn">Edit</button>
+            <button data-id="${c.id}" class="delete-btn">Delete</button>
+          </td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    }
+
+    // Add / Edit
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      setError("");
+      setMessage("");
+
+      const a = parseFloat(aInput.value);
+      const b = parseFloat(bInput.value);
+      const type = typeSelect.value;
+
+      if (Number.isNaN(a) || Number.isNaN(b)) {
+        setError("A and B must be numbers.");
+        return;
+      }
+      if (!["add", "sub", "multiply", "divide"].includes(type)) {
+        setError("Invalid operation type.");
+        return;
+      }
+      if (type === "divide" && b === 0) {
+        setError("Division by zero is not allowed.");
+        return;
+      }
+
+      const id = calcIdInput.value;
+      const payload = { a, b, type };
+      const method = id ? "PUT" : "POST";
+      const url = id ? `/calculations/${id}` : "/calculations";
+
+      try {
+        const resp = await fetch(url, {
+          method,
+          headers: authHeaders(),
+          body: JSON.stringify(payload),
+        });
+
+        const data = await resp.json().catch(() => null);
+
+        if (resp.status === 401) {
+          setError("You are not logged in.");
+          return;
+        }
+
+        if (!resp.ok) {
+          if (data && data.detail) {
+            if (Array.isArray(data.detail)) {
+              setError(data.detail[0].msg || "Validation error.");
+            } else {
+              setError(data.detail);
+            }
+          } else {
+            setError("Request failed.");
+          }
+          return;
+        }
+
+        setMessage(id ? "Calculation updated." : "Calculation created.");
+        form.reset();
+        calcIdInput.value = "";
+        await loadCalculations();
+      } catch (err) {
+        console.error(err);
+        setError("Network error.");
+      }
+    });
+
+    resetBtn.addEventListener("click", () => {
+      form.reset();
+      calcIdInput.value = "";
+      setError("");
+      setMessage("");
+    });
+
+    // Edit / Delete buttons
+    tableBody.addEventListener("click", async (e) => {
+      const target = e.target;
+      if (target.classList.contains("edit-btn")) {
+        const id = target.getAttribute("data-id");
+        const resp = await fetch(`/calculations/${id}`, {
+          headers: authHeaders(),
+        });
+
+        if (resp.ok) {
+          const c = await resp.json();
+          calcIdInput.value = c.id;
+          aInput.value = c.a;
+          bInput.value = c.b;
+          typeSelect.value = c.type;
+          setMessage(`Editing calculation #${c.id}`);
+        } else if (resp.status === 401) {
+          setError("You are not logged in.");
+        } else {
+          setError("Could not load calculation for editing.");
+        }
+      } else if (target.classList.contains("delete-btn")) {
+        const id = target.getAttribute("data-id");
+        const resp = await fetch(`/calculations/${id}`, {
+          method: "DELETE",
+          headers: authHeaders(),
+        });
+        if (resp.status === 204) {
+          setMessage("Calculation deleted.");
+          await loadCalculations();
+        } else if (resp.status === 404) {
+          setError("Calculation not found.");
+        } else if (resp.status === 401) {
+          setError("You are not logged in.");
+        } else {
+          setError("Delete failed.");
+        }
+      }
+    });
+
+    console.log("Loaded token:", getToken());
+    loadCalculations();
+  </script>
+</body>
+</html>
