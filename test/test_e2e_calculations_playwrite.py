@@ -1,7 +1,3 @@
-"""
-Calculation BREAD flows exercised without starting a real server/browser.
-We rely on FastAPI's TestClient because the sandbox blocks opening sockets and Playwright.
-"""
 import os
 import time
 import uuid

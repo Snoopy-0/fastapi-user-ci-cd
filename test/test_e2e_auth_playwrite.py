@@ -1,8 +1,3 @@
-"""
-E2E-style auth flows exercised via FastAPI's TestClient.
-We avoid starting a real server or browser because the execution environment
-does not permit opening listening sockets or launching Playwright.
-"""
 import os
 import time
 import uuid
@@ -61,7 +56,6 @@ def test_register_success():
     assert data["email"] == payload["email"]
     assert data["access_token"]
 
-    # Token should allow access to protected routes, mirroring the front-end flow
     auth_headers = {"Authorization": f"Bearer {data['access_token']}"}
     protected_resp = client.get("/calculations", headers=auth_headers)
     assert protected_resp.status_code == 200

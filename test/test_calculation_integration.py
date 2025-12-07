@@ -46,7 +46,6 @@ app.dependency_overrides[get_db] = override_get_db
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
-    # ensure DB is ready (handles Postgres startup lag in CI)
     for _ in range(10):
         try:
             Base.metadata.create_all(bind=engine)
