@@ -116,3 +116,31 @@ def test_invalid_divide_by_zero():
 
     body = resp.json()
     assert "Division by zero" in body["detail"][0]["msg"]
+
+def test_calculation_stats_flow():
+    auth = get_auth_headers()
+
+    initial_resp = client.get("/calculations/stats", headers=auth)
+    assert initial_resp.status_code == 200
+    assert initial_resp.json()["total"] == 0
+
+    client.post("/calculations", json={"a": 4, "b": 4, "type": "add"}, headers=auth)
+    client.post(
+        "/calculations",
+        json={"a": 10, "b": 3, "type": "sub"},
+        headers=auth,
+    )
+
+    stats_resp = client.get("/calculations/stats", headers=auth)
+    assert stats_resp.status_code == 200
+    stats = stats_resp.json()
+
+    assert stats["total"] == 2
+    assert stats["average_a"] == pytest.approx(7.0)
+    assert stats["average_b"] == pytest.approx(3.5)
+    assert stats["average_result"] == pytest.approx(7.5)
+
+def test_calculation_stats_requires_auth():
+    resp = client.get("/calculations/stats")
+    assert resp.status_code == 401
+    assert resp.json()["detail"].lower() == "not authenticated"

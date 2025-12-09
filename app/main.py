@@ -208,6 +208,16 @@ def browse_calculations(
     return calcs
 
 @app.get(
+    "/calculations/stats",
+    response_model=schemas.CalculationStats,
+)
+def calculation_stats(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    return crud.get_calculation_stats(db, user_id=current_user.id)
+
+@app.get(
     "/calculations/{calc_id}",
     response_model=schemas.CalculationRead,
 )

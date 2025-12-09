@@ -13,12 +13,38 @@
     #message { color: green; min-height: 1.2rem; }
     table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
     th, td { border: 1px solid #ccc; padding: 0.4rem; text-align: center; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin: 1rem 0; }
+    .stat-card { border: 1px solid #ddd; border-radius: 6px; padding: 0.75rem; background: #f9fafb; }
+    .stat-label { font-size: 0.85rem; color: #555; }
+    .stat-value { font-size: 1.3rem; margin-top: 0.35rem; font-weight: bold; }
   </style>
 </head>
 <body>
   <h1>Your Calculations</h1>
   <div id="error"></div>
   <div id="message"></div>
+
+  <section aria-label="Usage stats">
+    <h2>Usage Summary</h2>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total calculations</div>
+        <div class="stat-value" id="stat-total">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Average A</div>
+        <div class="stat-value" id="stat-avg-a">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Average B</div>
+        <div class="stat-value" id="stat-avg-b">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Average result</div>
+        <div class="stat-value" id="stat-avg-result">—</div>
+      </div>
+    </div>
+  </section>
 
   <!-- Add / Edit form -->
   <form id="calc-form">
@@ -69,6 +95,10 @@
     const aInput = document.getElementById("a");
     const bInput = document.getElementById("b");
     const typeSelect = document.getElementById("type");
+    const statTotal = document.getElementById("stat-total");
+    const statAvgA = document.getElementById("stat-avg-a");
+    const statAvgB = document.getElementById("stat-avg-b");
+    const statAvgResult = document.getElementById("stat-avg-result");
 
     function getToken() {
       return localStorage.getItem("authToken");
@@ -148,6 +178,47 @@
       });
     }
 
+    function formatNumber(val) {
+      if (val === null || val === undefined || Number.isNaN(val)) return "—";
+      const num = Number.parseFloat(val);
+      if (Number.isNaN(num)) return "—";
+      return num.toFixed(2);
+    }
+
+    async function loadStats() {
+      setError("");
+      if (!getToken()) {
+        setError("You are not logged in.");
+        return;
+      }
+
+      try {
+        const resp = await fetch("/calculations/stats", {
+          headers: authHeaders(),
+        });
+
+        if (resp.status === 401) {
+          setError("You are not logged in.");
+          return;
+        }
+
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => null);
+          setError((data && data.detail) || "Failed to load stats.");
+          return;
+        }
+
+        const stats = await resp.json();
+        statTotal.textContent = stats.total ?? 0;
+        statAvgA.textContent = formatNumber(stats.average_a);
+        statAvgB.textContent = formatNumber(stats.average_b);
+        statAvgResult.textContent = formatNumber(stats.average_result);
+      } catch (err) {
+        console.error(err);
+        setError("Network error.");
+      }
+    }
+
     // Add / Edit
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -207,6 +278,7 @@
         form.reset();
         calcIdInput.value = "";
         await loadCalculations();
+        await loadStats();
       } catch (err) {
         console.error(err);
         setError("Network error.");
@@ -250,6 +322,7 @@
         if (resp.status === 204) {
           setMessage("Calculation deleted.");
           await loadCalculations();
+          await loadStats();
         } else if (resp.status === 404) {
           setError("Calculation not found.");
         } else if (resp.status === 401) {
@@ -262,6 +335,7 @@
 
     console.log("Loaded token:", getToken());
     loadCalculations();
+    loadStats();
   </script>
 </body>
 </html>

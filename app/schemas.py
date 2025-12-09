@@ -67,6 +67,12 @@ class CalculationRead(CalculationBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+class CalculationStats(BaseModel):
+    total: int
+    average_a: float | None = None
+    average_b: float | None = None
+    average_result: float | None = None
+
 class CalculationCreate(CalculationBase):
     @model_validator(mode="after")
     def check_division_by_zero(self):

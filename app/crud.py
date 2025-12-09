@@ -1,3 +1,5 @@
+from typing import Sequence
+
 from sqlalchemy.orm import Session
 
 from . import models, schemas, security
@@ -53,6 +55,28 @@ def _normalize_calc_type(type_value) -> str:
         return type_value.value
     return str(type_value)
 
+def summarize_calculations(calculations: Sequence[models.Calculation]) -> schemas.CalculationStats:
+    """Compute usage stats from a list of calculations."""
+    total = len(calculations)
+    if total == 0:
+        return schemas.CalculationStats(
+            total=0,
+            average_a=None,
+            average_b=None,
+            average_result=None,
+        )
+
+    avg_a = sum(c.a for c in calculations) / total
+    avg_b = sum(c.b for c in calculations) / total
+    avg_result = sum(c.result for c in calculations) / total
+
+    return schemas.CalculationStats(
+        total=total,
+        average_a=avg_a,
+        average_b=avg_b,
+        average_result=avg_result,
+    )
+
 def create_calculation(
     db: Session,
     calc_in: schemas.CalculationCreate,
@@ -94,6 +118,13 @@ def get_calculations_for_user(
     if user_id is not None:
         query = query.filter(models.Calculation.user_id == user_id)
     return query.order_by(models.Calculation.id).all()
+
+def get_calculation_stats(
+    db: Session,
+    user_id: int | None = None,
+) -> schemas.CalculationStats:
+    calculations = get_calculations_for_user(db, user_id=user_id)
+    return summarize_calculations(calculations)
 
 def update_calculation(
     db: Session,

@@ -102,3 +102,50 @@ def test_calculation_unauthorized_access():
     resp = client.get("/calculations")
     assert resp.status_code == 401
     assert resp.json()["detail"].lower() == "not authenticated"
+
+def test_stats_updates_throughout_flow():
+    token = _create_user_and_token()
+    headers = _auth_headers(token)
+
+    initial = client.get("/calculations/stats", headers=headers)
+    assert initial.status_code == 200
+    assert initial.json()["total"] == 0
+
+    first = client.post(
+        "/calculations",
+        json={"a": 5, "b": 5, "type": "add"},
+        headers=headers,
+    )
+    assert first.status_code == 201
+
+    second = client.post(
+        "/calculations",
+        json={"a": 9, "b": 3, "type": "divide"},
+        headers=headers,
+    )
+    assert second.status_code == 201
+
+    stats_after = client.get("/calculations/stats", headers=headers)
+    assert stats_after.status_code == 200
+    stats_json = stats_after.json()
+
+    assert stats_json["total"] == 2
+    assert stats_json["average_a"] == pytest.approx(7.0)
+    assert stats_json["average_b"] == pytest.approx(4.0)
+    assert stats_json["average_result"] == pytest.approx(6.5)
+
+    calc_id = first.json()["id"]
+    delete_resp = client.delete(f"/calculations/{calc_id}", headers=headers)
+    assert delete_resp.status_code == 204
+
+    stats_after_delete = client.get("/calculations/stats", headers=headers)
+    assert stats_after_delete.status_code == 200
+    post_delete = stats_after_delete.json()
+
+    assert post_delete["total"] == 1
+    assert post_delete["average_result"] == pytest.approx(3.0)
+
+def test_stats_negative_unauthorized():
+    resp = client.get("/calculations/stats")
+    assert resp.status_code == 401
+    assert resp.json()["detail"].lower() == "not authenticated"
