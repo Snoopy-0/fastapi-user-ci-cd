@@ -41,7 +41,7 @@ uvicorn app.main:app --reload
 
 ### 4️ Open Swagger UI
 
-Go to: http://127.0.0.1:8000/docs
+Go to: http://127.0.0.1:8000
 
 ---
 
